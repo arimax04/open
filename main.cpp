@@ -2,9 +2,25 @@
 #include <opencv2/core/core.hpp>
 #include <stdio.h>
 #include <typeinfo>
+#include <GL/glut.h>
+void init_glut(int ,char*);
+
 #define WIDTH 640
 #define HEIGHT 320
+
+void init_glut(int argc,char* argv[]){
+   glutInit(&argc, argv);
+  glutInitDisplayMode(GLUT_RGBA);
+  glutInitWindowSize(640, 640);
+  glutCreateWindow("TEST");
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  gluOrtho2D(0.0, 640, 640, 0.0);
+  glViewport(0, 0, 640, 640);
+}
+
 int main(int argc,char *argv[]){
+  init_glut(argc,argv);
   std::cout<<"version:" << CV_VERSION << std::endl;
   cv::VideoCapture cap(1);
   cap.set(CV_CAP_PROP_FRAME_WIDTH,WIDTH);
@@ -54,7 +70,7 @@ int main(int argc,char *argv[]){
     maxid;
     hsv_skin_img=cv::Scalar(0,0,0);
     cap>>input_img;
-    cv::medianBlur(input_img,smooth_img,3);//ノイズがあるので平滑化
+    cv::medianBlur(input_img,smooth_img,7);//ノイズがあるので平滑化
     cv::cvtColor(smooth_img,hsv_img,CV_BGR2HSV);//HSVに変換
     //cv::cvtColor(smooth_img,distance_img,CV_BGR2HSV);
     cv::inRange(hsv_img,cv::Scalar(0,58,88),cv::Scalar(25,173,229),hsv_skin_img);
@@ -74,7 +90,9 @@ int main(int argc,char *argv[]){
     cv::convexHull(contours[maxid],hull);
     //std::cout << hull[0] << std::endl;
     if(!hull.empty()){
-      cv::circle(distance_img,hull[0],10,cv::Scalar(0.5,0,0),5,8,0);
+      for(auto h=hull.begin();h!=hull.end();h++){
+	cv::circle(distance_img,*h,10,cv::Scalar(0.5,0,0),5,8,0);
+      }
     }
     std::cout << maxarea<<":"<<maxid<<std::endl;
 
