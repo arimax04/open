@@ -87,6 +87,10 @@ int main(int argc,char *argv[]){
     }
     
     //cv::polylines(input_img,contours[maxid],true,cv::Scalar(0,255,0),2);
+    cv::Rect rectOfArea=cv::boundingRect(contours[maxid]);
+    cv::rectangle(input_img,rectOfArea.tl(),rectOfArea.br(),1,3);
+    cv::circle(input_img,rectOfArea.tl(),10,cv::Scalar(0.5,0,0),5,8,0);
+    
     cv::convexHull(contours[maxid],hull);
     //std::cout << hull[0] << std::endl;
     if(!hull.empty()){
@@ -94,8 +98,8 @@ int main(int argc,char *argv[]){
 	cv::circle(distance_img,*h,10,cv::Scalar(0.5,0,0),5,8,0);
       }
     }
+    
     std::cout << maxarea<<":"<<maxid<<std::endl;
-
 
     cv::imshow("input_img",input_img);
     cv::imshow("distance_img",distance_img);

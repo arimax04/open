@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <iostream>
 #include <stdlib.h>
 #include <math.h>
 #include <GL/glut.h>
@@ -11,6 +12,103 @@
 #define WINDOW_NAME "test5"
 #define TEXTURE_HEIGHT (480)
 #define TEXTURE_WIDTH (640)
+#define MAX_ENEMIES 100
+
+class mysphere{
+private:
+   GLdouble pos[2];//位置 0:x 1:y
+  GLdouble vec[2];//速度 0:x 1:y
+  double dt=0.01667;
+  double radius=0.1;
+public:
+ 
+  mysphere(){
+    pos[0]=pos[1]=vec[0]=vec[1]=0;
+  }
+  mysphere(GLdouble posx,GLdouble posy,GLdouble vecx,GLdouble vecy){
+    pos[0]=posx;
+    pos[1]=posy;
+    vec[0]=vecx;
+    vec[1]=vecy;
+    
+  }
+  
+  GLdouble* getpos(){
+    return pos;
+  }
+  GLdouble getposx(){
+    return pos[0];
+  }
+  GLdouble getposy(){
+    return pos[1];
+  }
+  GLdouble* getvec(){
+    return vec;
+  }
+  GLdouble getvecx(){
+    return vec[0];
+  }
+  GLdouble getvecy(){
+    return vec[1];
+  }
+  void setpos(GLdouble x,GLdouble y){
+    pos[0]=x;
+    pos[1]=y;
+  }
+  void setposx(GLdouble x){
+    pos[0]=x;
+  }
+  void setposy(GLdouble y){
+    pos[1]=y;
+  }
+  void setvec(GLdouble x,GLdouble y){
+    vec[0]=x;
+    vec[1]=y;
+  }
+  void setvecx(GLdouble x){
+    vec[0]=x;
+  }
+  void setvecy(GLdouble y){
+    vec[1]=y;
+  }
+  void update(){
+    pos[0]+=vec[0]*dt;
+    pos[1]+=vec[1]*dt;
+    glTranslatef(-pos[0],-pos[1],0.0);
+    glutSolidSphere(radius,16,16);
+  }
+  void updateforPlayer(){
+    glTranslatef(-pos[0],-pos[1],0.0);
+    glutSolidSphere(radius,16,16);
+  }
+  void calcConflict(mysphere& s){
+    if(std::pow(pos[0]-s.getposx(),2)+std::pow(pos[1]-s.getposy(),2)<=std::pow(radius,2)){
+      double r=std::sqrt(std::pow(pos[0]-s.getposx(),2)+std::pow(pos[1]-s.getposy(),2));
+      GLdouble p[]={//球の中心座標をむく単位位置ベクトル
+	(s.getposx()-pos[0])/r,
+	(s.getposy()-pos[1])/r
+      };
+      GLdouble pv[]={//上の単位ベクトルに垂直なベクトル
+	(s.getposy()-pos[1])/r,
+	-(s.getposx()-pos[0])/r
+      };
+      GLdouble vr1=vec[0]*p[0]+vec[1]*p[1];//自球から相球への衝突前の速度ベクトル
+      GLdouble vr2=-s.getvecx()*p[0]-s.getvecy()*p[1];//相球から自球への衝突前の速度ベクトル
+      GLdouble va1[]={//自球から相球への衝突後の速度ベクトル
+	p[0]*vr2,
+	p[1]*vr2
+      };
+      GLdouble va2[]={//相球から自球への衝突後の速度ベクトル
+	p[0]*vr1,
+	p[1]*vr1
+      };
+      vec[0]=va1[0]+pv[0]*vec[0];
+      vec[1]=va1[1]+pv[1]*vec[1];
+      s.setvecx(va2[0]+pv[0]*s.getvecx());
+      s.setvecy(va2[1]+pv[1]*s.getvecy());
+    }
+  }
+};
 
 void init_GL(int argc, char *argv[]);
 void init();
@@ -32,10 +130,26 @@ double g_distance = 10.0;
 bool g_isLeftButtonOn = false;
 bool g_isRightButtonOn = false;
 GLuint g_TextureHandles[3] = {0,0,0};
+mysphere player;
+mysphere enemies[MAX_ENEMIES];
+int nowenemies=0;
 
 //opencv
 cv::Mat   frame;
 cv::VideoCapture cap;
+cv::Mat input_img;
+cv::Mat hsv_skin_img=cv::Mat(cv::Size(TEXTURE_WIDTH,TEXTURE_HEIGHT),CV_8UC1);
+cv::Mat smooth_img;
+cv::Mat hsv_img;
+cv::Mat distance_img;
+cv::vector< cv::vector< cv::Point > > contours;
+double maxarea;
+int idx;
+int maxid;
+double mainx=0,mainy=0;
+
+
+
 
 int main(int argc, char *argv[]){
   /* OpenGLの初期化 */
@@ -59,13 +173,16 @@ void init_GL(int argc, char *argv[]){
   glutInitWindowSize(WINDOW_X,WINDOW_Y);
   glutCreateWindow(WINDOW_NAME);
 }
-void init_CV(){
-  cap.open(0);
-  cap>>frame;
-}
+
 void init(){
-  init_CV();
-  //opengl
+  //initcv
+  cap.open(0);
+  if(!cap.isOpened()){
+    std::cout<<"error!"<<std::endl;
+    exit(0);
+  }
+  
+  //initgl
   glClearColor(0.2, 0.2, 0.2, 0.2);
   glGenTextures(3,g_TextureHandles);
   
@@ -78,6 +195,9 @@ void init(){
   }
 
   //set_texture();
+  player=mysphere(0,0,0,0);
+  enemies[nowenemies]=mysphere(-1,-1,1,1);
+  nowenemies++;
 }
 
 void set_callback_functions(){
@@ -116,7 +236,7 @@ void glut_mouse(int button, int state, int x, int y){
     }
   }
 }
-
+ 
 void glut_motion(int x, int y){
   static int px = -1, py = -1;
   if(g_isLeftButtonOn == true){
@@ -146,26 +266,30 @@ void glut_display(){
 
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
-  gluLookAt(0,0,5,0,0,-1, 0,1,0);
-  /*
-  if (cos(g_angle2)>0){
-    gluLookAt(g_distance * cos(g_angle2) * sin(g_angle1), 
-	      g_distance * sin(g_angle2), 
-	      g_distance * cos(g_angle2) * cos(g_angle1), 
-	      0.0, 0.0, 0.0, 0.0, 1.0, 0.0);}
-  else{
-    gluLookAt(g_distance * cos(g_angle2) * sin(g_angle1),
-	      g_distance * sin(g_angle2),
-	      g_distance * cos(g_angle2) * cos(g_angle1),
-	      0.0, 0.0, 0.0, 0.0, -1.0, 0.0);}
-  */
+  gluLookAt(-0.5,-0.5,5,-0.5,-0.5,-1, 0,1,0);
+  
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
   glEnable(GL_DEPTH_TEST);
+  //衝突関係をここにいれたい
+  for(int i=0;i<nowenemies;i++){
+    glPushMatrix();
+    for(int j=i+1;j<nowenemies;j++){
+      enemies[i].calcConflict(enemies[j]);
+    }
+    enemies[i].calcConflict(player);
+    enemies[i].update();
+    
+    glPopMatrix();
+  }
   glPushMatrix();
-  glTranslatef(0,0.5,0.0);
+  //glTranslatef(-mainx,-mainy,0.0);
   //glScalef(0.1,0.1,0.1);
   //draw_pyramid();
-  glutSolidSphere(0.1,16,16);
+  //glutSolidSphere(0.1,16,16);
+  //draw_main();
+  player.setpos(mainx,mainy);
+  player.updateforPlayer();
   glPopMatrix();
   glPushMatrix();
   draw_background();
@@ -173,30 +297,54 @@ void glut_display(){
   glFlush();
   glDisable(GL_DEPTH_TEST);
   glutSwapBuffers();
+
 }
 
 void glut_idle(){
-  //glLoadIdentity();
-  glScalef(0.1,0.1,0.1);
-  glTranslatef(0,0.5,0.0);
-  draw_pyramid();
   static int counter = 0;
   cap>>frame;
-  cv::Mat input=frame;
-  cv::cvtColor(input,input,CV_BGR2RGB);
-  cv::circle(input,cv::Point(200,100),10,cv::Scalar(0.5,0,0),5,8,0);
+  input_img=frame;
+  cv::flip(input_img,input_img,1);
+  cv::flip(input_img,input_img,-1);
+  //cv::circle(input,cv::Point(200,100),10,cv::Scalar(0.5,0,0),5,8,0);
+  maxarea=0;
+  idx=0;
+  maxid;
+  hsv_skin_img=cv::Scalar(0,0,0);
+  cv::medianBlur(input_img,smooth_img,7);
+  cv::cvtColor(smooth_img,hsv_img,CV_BGR2HSV);
+  cv::inRange(hsv_img,cv::Scalar(0,58,88),cv::Scalar(25,173,229),hsv_skin_img);
+  cv::findContours(hsv_skin_img,contours,CV_RETR_LIST,CV_CHAIN_APPROX_NONE);
+  std::cout<<"OK"<<std::endl;
+  for(int i=0;i<contours.size();i++){
+    if(maxarea<=contourArea(contours[i])) {
+      maxid=i;
+      maxarea=contourArea(contours[i]);
+    }
+  }
+  cv::Rect rectOfArea=cv::boundingRect(contours[maxid]);
+  cv::rectangle(input_img,rectOfArea.tl(),rectOfArea.br(),1,3);
+  cv::Point middle;
+  middle.x=(rectOfArea.tl().x+rectOfArea.br().x)/2;
+  middle.y=(rectOfArea.tl().y+rectOfArea.br().y)/2;
+  mainx=double(middle.x)/TEXTURE_WIDTH;
+  mainy=double(middle.y)/TEXTURE_HEIGHT;
+  //std::cout <<"mainx="<<middle.x/TEXTURE_WIDTH<<"mainy="<<mainy<<std::endl;
+  cv::circle(input_img,middle,10,cv::Scalar(0.5,0,0),5,8,0);
+  cv::cvtColor(input_img,input_img,CV_BGR2RGB);
   glBindTexture(GL_TEXTURE_2D,0);
   glBindTexture(GL_TEXTURE_2D,g_TextureHandles[0]);
-  glTexSubImage2D(GL_TEXTURE_2D,0,(TEXTURE_WIDTH-input.cols)/2,(TEXTURE_HEIGHT-input.rows)/2,input.cols,input.rows,GL_RGB,GL_UNSIGNED_BYTE,input.data);
+  glTexSubImage2D(GL_TEXTURE_2D,0,(TEXTURE_WIDTH-input_img.cols)/2,(TEXTURE_HEIGHT-input_img.rows)/2,input_img.cols,input_img.rows,GL_RGB,GL_UNSIGNED_BYTE,input_img.data);
 glBindTexture(GL_TEXTURE_2D,g_TextureHandles[0]);
   
   glutPostRedisplay();
 }
+
 void draw_background(){
-  GLdouble pointO[] = {0.5, 0.5, 0.0};
-  GLdouble pointA[] = {-0.5, 0.5, 0};
-  GLdouble pointB[] = {-0.5, -0.5, 0};
-  GLdouble pointC[] = {0.5, -0.5, 0};
+  GLdouble pointO[] = { 0,  0, 0};
+  GLdouble pointA[] = {-1,  0, 0};
+  GLdouble pointB[] = {-1, -1, 0};
+  GLdouble pointC[] = { 0, -1, 0};
   
   glEnable(GL_TEXTURE_2D);
   glColor3d(0.5,0.5,0.5);
