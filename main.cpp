@@ -32,6 +32,7 @@ int main(int argc,char *argv[]){
       exit(0);
     }
   }
+  
   cv::Mat input_img;
   cv::Mat hsv_skin_img=cv::Mat(cv::Size(WIDTH,HEIGHT),CV_8UC1);
   cv::Mat smooth_img;
@@ -43,7 +44,7 @@ int main(int argc,char *argv[]){
   int idx;
   int maxid;
   std::vector< cv::Point > storage;
-
+   
   //背景差分
   /*
   cv::Mat im,gray,bg,diff,dst;
@@ -52,7 +53,7 @@ int main(int argc,char *argv[]){
   cv::cvtColor(im,bg,CV_BGR2GRAY);
   */
   while(1){
-    /*
+    /*  
     cap>>im;
     cv::cvtColor(im,gray,CV_BGR2GRAY);
     cv::absdiff(gray,bg,diff);
@@ -63,8 +64,9 @@ int main(int argc,char *argv[]){
     }
     if(cv::waitKey(1)==27){
       break;
-      }*/
-    
+    }
+    */
+      
     maxarea=0;
     idx=0;
     maxid;
@@ -100,9 +102,10 @@ int main(int argc,char *argv[]){
     }
     
     std::cout << maxarea<<":"<<maxid<<std::endl;
-
+    
     cv::imshow("input_img",input_img);
     cv::imshow("distance_img",distance_img);
+    
     if(cv::waitKey(30)>=0){
       break;
     }
