@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <GL/glut.h>
-#include <opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -23,8 +22,6 @@ GLdouble loseRange=0.1;
 GLdouble fieldRange=2;
 GLdouble cameraDistance=10;
 int score=0;
-int sphereid=-1;
-bool collidercheck[MAX_ENEMIES];
 
 class mysphere{
 private:
@@ -33,8 +30,8 @@ private:
   double dt=delta;
   double radius=0.1;
   double accelerate=1.2;
+  bool conflictcounter=true;
   std::string tag;
-  int id;
 public:
  
   mysphere(){
@@ -47,16 +44,12 @@ public:
     vec[0]=vecx;
     vec[1]=vecy;
     tag=t;
-    id=sphereid++;
-  }
-  int getid(){
-    return id;
   }
   bool getcounter(){
-    return collidercheck[id];
+    return conflictcounter;
   }
   void setcounter(bool c){
-    collidercheck[id]=c;
+    conflictcounter=true;
   }
   GLdouble getradius(){
     return radius;
@@ -129,9 +122,9 @@ public:
   }
   void calcConflict(mysphere& s){
     if(std::pow(pos[0]-s.getposx(),2)+std::pow(pos[1]-s.getposy(),2)<=std::pow(radius+s.getradius(),2)){
-      if(!collidercheck[id] && !s.getcounter()){
-	collidercheck[id]=true;
-	s.setcounter(true);
+      if(conflictcounter && s.getcounter()){
+	conflictcounter=false;
+	s.setcounter(false);
 	double r=std::sqrt(std::pow(pos[0]-s.getposx(),2)+std::pow(pos[1]-s.getposy(),2));//位置ベクトルの大きさ
 	GLdouble p[]={//球の中心座標をむく単位位置ベクトル
 	  (s.getposx()-pos[0])/r,
@@ -169,9 +162,8 @@ public:
 	  score+=10;
 	}
       }
-    }else if(collidercheck[id]&&s.getcounter()){
-      collidercheck[id]=false;
-      s.setcounter(false);
+    }else{
+      conflictcounter=true;
     }
   }
 };
@@ -215,14 +207,10 @@ cv::Mat frame;
 cv::Mat avg_img, sgm_img;
 cv::Mat lower_img, upper_img, tmp_img;
 cv::Mat dst_img, msk_img;
-double B_PARAM = 1.0 / 50.0;
-double T_PARAM = 1.0 / 200.0;
-double Zeta = 10.0;
+ double B_PARAM = 1.0 / 50.0;
+  double T_PARAM = 1.0 / 200.0;
+  double Zeta = 10.0;
 int INIT_TIME = 50;
-std::string cascadeName="/home/max/open/aGest.xml";
-cv::CascadeClassifier cascade;
-double scale = 4.0;
-cv::Mat gray, smallImg(cv::saturate_cast<int>(TEXTURE_WIDTH/scale),cv::saturate_cast<int>(TEXTURE_HEIGHT/scale), CV_8UC1);
 
 double maxarea;
 int idx;
@@ -270,15 +258,10 @@ void init(){
     std::cout<<"error!"<<std::endl;
     exit(0);
   }
-  
+  cap >> frame;
   
   cv::Size s = frame.size();
-  if(!cascade.load(cascadeName)){
-    printf("ERROR: cascadeFile not found\n");
-    return ;
-  }
-  /*
-//cap >> frame;
+  
   avg_img.create(s, CV_32FC3);
   sgm_img.create(s, CV_32FC3);
   lower_img.create(s, CV_32FC3);
@@ -311,7 +294,7 @@ void init(){
   }
 
   sgm_img.convertTo(sgm_img, -1, 1.0 / INIT_TIME);
-  */
+
 
 
 
@@ -432,7 +415,7 @@ void glut_display(){
   glPopMatrix();
   
   glPushMatrix();
-  glColor3d(155,255,255);
+  glColor3d(0,0,0);
   glTranslatef(-centerx,-centery,0);
   glutSolidSphere(loseRange,16,16);
   glPopMatrix();
@@ -466,36 +449,8 @@ void glut_idle(){
     nowenemies++;
   }
   cap>>frame;
-
   input_img=frame.clone();
-  //<cascade>
-  cv::Point middle;
-  cv::cvtColor(frame, gray, CV_BGR2GRAY);
-  //cv::resize(gray,smallImg,smallImg.size(),0,0,cv::INTER_LINEAR);
-  //cv::equalizeHist(smallImg,smallImg);
-  std::vector<cv::Rect> faces;
-  cascade.detectMultiScale(gray,faces,1.1,2,CV_HAAR_FIND_BIGGEST_OBJECT,cv::Size(40,40));
-  for(int i=0;i<faces.size();i++){
-    scale=1;
-    cv::Point first;
-    first.x=faces[i].x*scale;
-    first.y=faces[i].y*scale;
-    cv::Point second;
-    second.x=(faces[i].x+faces[i].width)*scale;
-    second.y=(faces[i].y+faces[i].height)*scale;
-    
-    cv::rectangle(input_img,first,second,1,3);
-    
-    middle.x=(first.x+second.x)/2;
-    middle.y=(first.y+second.y)/2;
-    mainx=double(middle.x)/TEXTURE_WIDTH;
-    mainy=double(middle.y)/TEXTURE_HEIGHT;
-    scale=4;
-  }
-  
-  
-  //</cascade>
-  /*
+
     frame.convertTo(tmp_img,avg_img.type());
     // 4. check whether pixels are background or not
     cv::subtract(avg_img,sgm_img,lower_img);
@@ -517,7 +472,7 @@ void glut_idle(){
     //input_img=cv::Scalar(0);
     //frame.copyTo(input_img, msk_img);
     imwrite("dorakue.png",input_img);
-  
+    
   cv::flip(input_img,input_img,1);
   cv::flip(input_img,input_img,-1);
   //cv::circle(input,cv::Point(200,100),10,cv::Scalar(0.5,0,0),5,8,0);
@@ -562,7 +517,6 @@ void glut_idle(){
   //mainx=double(rectOfArea.tl().x)/TEXTURE_WIDTH;
   //mainy=double(rectOfArea.tl().y)/TEXTURE_HEIGHT;
   cv::circle(input_img,middle,10,cv::Scalar(0.5,0,0),5,8,0);
-  */
   cv::cvtColor(input_img,input_img,CV_BGR2RGB);
   glBindTexture(GL_TEXTURE_2D,0);
   glBindTexture(GL_TEXTURE_2D,g_TextureHandles[0]);
@@ -603,7 +557,7 @@ void draw_playerRange(){
   GLdouble pointC[] = { 0, -1, 0};
   
   glEnable(GL_TEXTURE_2D);
-  glColor3d(1,1,1);
+  glColor3d(0.5,0.5,0.5);
   glBegin(GL_POLYGON);
   glTexCoord2d(0.0,0.0);
   glVertex3dv(pointO);

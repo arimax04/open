@@ -33,7 +33,7 @@ int main(int argc,char *argv[]){
     }
   }
   
-  cv::Mat input_img;
+  //  cv::Mat input_img;
   cv::Mat hsv_skin_img=cv::Mat(cv::Size(WIDTH,HEIGHT),CV_8UC1);
   cv::Mat smooth_img;
   cv::Mat hsv_img;
@@ -49,9 +49,7 @@ int main(int argc,char *argv[]){
   int idx;
   int maxid;
   std::vector< cv::Point > storage;
- 
-  int width=0;
-  int height=0;
+   
   //背景差分
 
   cv::Mat im,gray,bg,diff,dst;
@@ -86,28 +84,18 @@ int main(int argc,char *argv[]){
     channels.push_back(dst);
     cv::merge(channels,input_img);
     */
-    width=im.cols;
-    height=im.rows;
-    //std::cout<<width<<":"<<height<<std::endl;
-    //input_img = cv::Mat::ones(width,height,CV_8UC3) * 100;
-    // cv::imshow("Camera0",input_img);
+    
     //cv::cvtColor(dst,dst,CV_GRAY2BGR);
     //
     //input_img.copyTo(im,dst);
-    input_img=cv::Scalar(0);
-    //dst.convertTo(dst,im.type());
+    cv::Mat input_img;
     im.copyTo(input_img,dst);
-    imshow("pre-skin-detec",dst);
-    //dst.copyTo(input_img,dst);
     //input_img.copyTo(dst,input_img);
     //dst.copyTo(input_img,dst);
     //dst.copyTo(dst,input_img);
-    //cv::bitwise_and(im,im,input_img,dst);
-    //std::cout<<dst.type()<<":"<<dst.depth()<<":"<<im.type()<<":"<<im.depth()<<std::endl;
-    //std::cout<<CV_8UC3<<":"<<dst.depth()<<":"<<im.type()<<":"<<im.depth()<<std::endl;
-    //cv::bitwise_and(im,dst,input_img);
+    //cv::bitwise_and(input_img,dst,input_img);
     cv::imshow("Camera",input_img);
-    
+    imshow("pre-skin-detec",input_img);
     cv::medianBlur(input_img,smooth_img,7);//ノイズがあるので平滑化
     cv::cvtColor(smooth_img,hsv_img,CV_BGR2HSV);//HSVに変換
     //cv::morphologyEx(hsv_img,hsv_skin_img,CV_MOP_OPEN,cv::Mat(),cv::Point(-1,-1),1);
@@ -125,7 +113,6 @@ int main(int argc,char *argv[]){
     //imshow("skin-detec",hsv_skin_img);
     //cv::inRange(distance_img,cv::Scalar(0,58,89),cv::Scalar(25,173,229),distance_img);
     //cv::cvtColor(distance_img,distance_img,CV_HSV2BGR);
-    /*
     cv::distanceTransform(hsv_skin_img,distance_img,CV_DIST_L2,3);
     cv::findContours(hsv_skin_img,contours,CV_RETR_LIST,CV_CHAIN_APPROX_NONE);
     std::vector<cv::Point> hull(contours.size());
@@ -144,11 +131,11 @@ int main(int argc,char *argv[]){
     cv::convexHull(contours[maxid],hull);
     //std::cout << hull[0] << std::endl;
     if(!hull.empty()){
-       for(auto h=hull.begin();h!=hull.end();h++){
+      for(auto h=hull.begin();h!=hull.end();h++){
 	cv::circle(distance_img,*h,10,cv::Scalar(0.5,0,0),5,8,0);
       }
     }
-    */
+    
     std::cout << maxarea<<":"<<maxid<<std::endl;
     
     //cv::imshow("input_img",input_img);
