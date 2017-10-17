@@ -21,6 +21,7 @@ GLdouble centerx=0.5,centery=0.5;
 GLdouble loseRange=0.1;
 GLdouble fieldRange=2;
 GLdouble cameraDistance=10;
+int score=0;
 
 class mysphere{
 private:
@@ -29,7 +30,7 @@ private:
   double dt=delta;
   double radius=0.1;
   double accelerate=1.05;
-  int conflictcounter=0;
+  bool conflictcounter=true;
   std::string tag;
 public:
  
@@ -100,6 +101,7 @@ public:
     }
     if(std::pow(pos[0]-centerx,2)+std::pow(pos[1]-centery,2)<=std::pow(loseRange+radius,2)){
       std::cout<<"You lose!!" <<std::endl;
+      std::cout<<"Your Score is "<< score<<"."<<std::endl;
       exit(1);
     }
     glColor3d(128/255.0,0,128/255.0);
@@ -114,8 +116,8 @@ public:
   }
   void calcConflict(mysphere& s){
     if(std::pow(pos[0]-s.getposx(),2)+std::pow(pos[1]-s.getposy(),2)<=std::pow(radius+s.getradius(),2)){
-      std::cout<<"conflict" <<conflictcounter<<std::endl;
-      if(conflictcounter++%2==0){
+      if(conflictcounter){
+	conflictcounter=false;
 	double r=std::sqrt(std::pow(pos[0]-s.getposx(),2)+std::pow(pos[1]-s.getposy(),2));//位置ベクトルの大きさ
 	GLdouble p[]={//球の中心座標をむく単位位置ベクトル
 	  (s.getposx()-pos[0])/r,
@@ -139,19 +141,22 @@ public:
 	  p[0]*vr1*accelerate,
 	  p[1]*vr1*accelerate
 	};
-	pos[0]+=radius/2*(-p[0]);
-	pos[1]+=radius/2*(-p[1]);
+	//pos[0]+=radius/2*(va1[0]);
+	//pos[1]+=radius/2*(va1[1]);
 	vec[0]=va1[0]+pv[0]*vec[0];
 	vec[1]=va1[1]+pv[1]*vec[1];
 	s.setvecx(va2[0]+pv[0]*s.getvecx());
 	s.setvecy(va2[1]+pv[1]*s.getvecy());
-	s.setposx(s.getposx()+radius/2*p[0]);
-	s.setposy(s.getposy()+radius/2*p[1]);
+	//s.setposx(s.getposx()+radius/2*va2[0]);
+	//s.setposy(s.getposy()+radius/2*va2[1]);
 	if(s.gettag()=="player"){
 	  s.setvecx(0);
 	  s.setvecy(0);
+	  score+=10;
 	}
       }
+    }else{
+      conflictcounter=true;
     }
   }
 };
@@ -208,7 +213,7 @@ int main(int argc, char *argv[]){
 
   /* コールバック関数の登録 */
   set_callback_functions();
-
+  
   /*タイマー*/
   glutTimerFunc(100,counter,0);
   /* メインループ */
@@ -326,7 +331,8 @@ void glut_display(){
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   glEnable(GL_DEPTH_TEST);
-  //衝突関係をここにいれたい
+  
+  //衝突判定
   for(int i=0;i<nowenemies;i++){
     glPushMatrix();
     for(int j=i+1;j<nowenemies;j++){
@@ -337,6 +343,7 @@ void glut_display(){
     
     glPopMatrix();
   }
+  
   glPushMatrix();
   //glTranslatef(-mainx,-mainy,0.0);
   //glScalef(0.1,0.1,0.1);
@@ -348,18 +355,29 @@ void glut_display(){
   playery=mainy;
   player.updateforPlayer();
   glPopMatrix();
+  
   glPushMatrix();
   glColor3d(0,0,0);
   glTranslatef(-centerx,-centery,0);
   glutSolidSphere(loseRange,16,16);
   glPopMatrix();
-  glPushMatrix();
   
+  glPushMatrix();
+  std::string Sscore=std::to_string(score);
+  int size=(int)Sscore.size();
+  glRasterPos2f(100,100);
+  for(int i=0;i<size;i++){
+    char ic=Sscore[i];
+    glutBitmapCharacter(GLUT_BITMAP_9_BY_15,ic);
+  glPopMatrix();
+  }  
+  glPushMatrix();
   draw_background();
   glPopMatrix();
+  
   glPushMatrix();
   draw_playerRange();
-  glPopMatrix();
+  glPopMatrix();  
   glFlush();
   glDisable(GL_DEPTH_TEST);
   glutSwapBuffers();
@@ -508,6 +526,7 @@ void set_texture(){
   char *inputFileNames[3] = {"baboon.jpg", "www.jpg", "building.jpg"};
   for(int i = 0; i < 3; i++){
     cv::Mat input=cv::imread(inputFileNames[i],1);
+    cv::resize(input,input,cv::Size(),640.0/input.cols,480.0/input.rows);
     // BGR -> RGBの変換
     cv::cvtColor(input,input,CV_BGR2RGB);
 
